@@ -1,0 +1,94 @@
+=====================================================
+PROTRADER AI - INSTALLATION INSTRUCTIONS
+=====================================================
+
+YOUR DISK IS 95% FULL! You need to free up space first.
+
+STEP 1: FREE UP DISK SPACE
+---------------------------
+You currently have only 13GB free on C: drive. 
+Before running npm install, free up at least 2-3GB:
+
+1. Empty Recycle Bin
+2. Run Windows Disk Cleanup:
+   - Search "Disk Cleanup" in Windows
+   - Select C: drive
+   - Check "Temporary files", "Downloads", etc.
+   
+3. Clean npm cache:
+   npm cache clean --force
+
+4. Delete Windows temp files:
+   - Press Win+R
+   - Type: %temp%
+   - Delete all files (skip locked ones)
+
+5. Check Downloads folder for large files
+
+STEP 2: INSTALL DEPENDENCIES
+-----------------------------
+Once you have freed up space:
+
+cd c:\Users\Prashant\OneDrive\Desktop\New folder\protrader-ai
+npm install
+
+This will install all packages listed in package.json.
+
+STEP 3: GET FREE API KEYS
+--------------------------
+You need these free API keys:
+
+1. Supabase (Database):
+   - Go to: https://supabase.com
+   - Create free account
+   - Create new project
+   - Get URL and anon key from Settings > API
+
+2. Upstash Redis (Caching):
+   - Go to: https://upstash.com
+   - Create free account
+   - Create Redis database
+   - Get REST URL and Token
+
+3. News API (Financial News):
+   - Go to: https://newsapi.org
+   - Sign up for free
+   - Get API key (100 requests/day free)
+
+4. Alpha Vantage (Fundamentals):
+   - Go to: https://www.alphavantage.co
+   - Get free API key (500 calls/day)
+
+STEP 4: CONFIGURE ENVIRONMENT
+------------------------------
+1. Copy the example file:
+   copy .env.local.example .env.local
+
+2. Edit .env.local with your API keys:
+   - Use Notepad or any text editor
+   - Fill in all the values
+
+STEP 5: RUN THE APP
+--------------------
+npm run dev
+
+Then open: http://localhost:3000
+
+TROUBLESHOOTING
+---------------
+If npm install fails with ENOSPC:
+- You don't have enough disk space
+- Follow STEP 1 again
+- Try: npm cache clean --force
+
+If you get module not found errors:
+- Delete node_modules folder
+- Delete package-lock.json
+- Run: npm install again
+
+SUPPORT
+-------
+Check README.md for full documentation
+Report issues at: https://github.com/anthropics/claude-code/issues
+
+=====================================================
