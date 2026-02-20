@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,10 +38,69 @@ export default function PortfolioPage() {
     }
   };
 
+  useEffect(() => {
+    const saved = localStorage.getItem('protrader_holdings');
+    if (saved) {
+      try {
+        setHoldings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse holdings', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('protrader_holdings', JSON.stringify(holdings));
+  }, [holdings]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPrices = async () => {
+      if (holdings.length === 0) return;
+      const updatedHoldings = await Promise.all(
+        holdings.map(async (h) => {
+          try {
+            const res = await fetch(`/api/market/quote?ticker=${h.ticker}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.price) {
+                return { ...h, currentPrice: data.price };
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching price for ${h.ticker}`, error);
+          }
+          return h;
+        })
+      );
+
+      const hasChanges = updatedHoldings.some((uh, idx) => uh.currentPrice !== holdings[idx].currentPrice);
+      if (hasChanges && isMounted) {
+        setHoldings(updatedHoldings);
+      }
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 60000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [holdings.length]);
+
   const totalInvested = holdings.reduce(
     (sum, h) => sum + h.quantity * h.avgPrice,
     0
   );
+
+  const currentValue = holdings.reduce(
+    (sum, h) => sum + h.quantity * (h.currentPrice || h.avgPrice),
+    0
+  );
+
+  const totalPnL = currentValue - totalInvested;
+  const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -85,10 +144,10 @@ export default function PortfolioPage() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-primary" />
-                <p className="text-3xl font-bold">{formatCurrency(totalInvested)}</p>
+                <p className="text-3xl font-bold">{formatCurrency(currentValue)}</p>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Connect API to get live prices
+                Live prices via API
               </p>
             </CardContent>
           </Card>
@@ -101,10 +160,18 @@ export default function PortfolioPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-positive" />
-                <p className="text-3xl font-bold text-positive">$0.00</p>
+                {totalPnL >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-positive" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-destructive" />
+                )}
+                <p className={`text-3xl font-bold ${totalPnL >= 0 ? 'text-positive' : 'text-destructive'}`}>
+                  {totalPnL >= 0 ? '+' : ''}{formatCurrency(totalPnL)}
+                </p>
               </div>
-              <p className="text-sm text-positive mt-1">+0.00%</p>
+              <p className={`text-sm mt-1 ${totalPnL >= 0 ? 'text-positive' : 'text-destructive'}`}>
+                {totalPnL >= 0 ? '+' : ''}{formatPercentage(totalPnLPercent)}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -185,9 +252,19 @@ export default function PortfolioPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold">
-                        {formatCurrency(holding.quantity * holding.avgPrice)}
+                        {formatCurrency(holding.quantity * (holding.currentPrice || holding.avgPrice))}
                       </p>
-                      <p className="text-sm text-muted-foreground">Total Cost</p>
+                      <div className={`text-sm font-medium flex items-center justify-end gap-1 ${((holding.currentPrice || holding.avgPrice) - holding.avgPrice) >= 0
+                          ? 'text-positive'
+                          : 'text-destructive'
+                        }`}>
+                        {((holding.currentPrice || holding.avgPrice) - holding.avgPrice) >= 0
+                          ? <TrendingUp className="h-3 w-3" />
+                          : <TrendingDown className="h-3 w-3" />}
+                        {formatCurrency(Math.abs((holding.currentPrice || holding.avgPrice) - holding.avgPrice))} (
+                        {formatPercentage((((holding.currentPrice || holding.avgPrice) - holding.avgPrice) / holding.avgPrice) * 100)}
+                        )
+                      </div>
                     </div>
                   </div>
                 ))}

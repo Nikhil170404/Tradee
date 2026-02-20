@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         volume: 0,
         previousClose: 0,
         marketCap: 0,
-      });
+      }, { status: 503 });
     }
   } catch (error) {
     console.error('API Error:', error);
@@ -70,6 +70,6 @@ export async function GET(request: NextRequest) {
       volume: 0,
       previousClose: 0,
       marketCap: 0,
-    });
+    }, { status: 503 });
   }
 }

@@ -10,6 +10,7 @@ import {
     ArrowLeft, DollarSign, Target, Percent
 } from 'lucide-react'
 import Link from 'next/link'
+import { formatCurrency } from '@/lib/utils'
 
 interface StrategyResult {
     strategy: string
@@ -82,14 +83,6 @@ export default function BacktestPage() {
         } finally {
             setLoading(false)
         }
-    }
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0
-        }).format(value)
     }
 
     const formatPercent = (value: number | string) => {

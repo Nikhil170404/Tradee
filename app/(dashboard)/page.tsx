@@ -15,11 +15,38 @@ interface MarketIndex {
   changePercent: number;
 }
 
+interface DailyPickData {
+  pick: {
+    ticker: string;
+    sector: string;
+    overall_signal: string;
+    confidence_level: string;
+    overall_score: number;
+    rsi: number;
+  };
+  generated_at?: string;
+}
+
+interface ScreenerData {
+  categories: {
+    top_gainers: any[];
+    top_losers: any[];
+  };
+}
+
+interface NewsItem {
+  title: string;
+  link: string;
+  publisher: string;
+  sentiment: string;
+  providerPublishTime: number;
+}
+
 export default function DashboardPage() {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
-  const [dailyPick, setDailyPick] = useState<any>(null);
-  const [screenerData, setScreenerData] = useState<any>(null);
-  const [news, setNews] = useState<any[]>([]);
+  const [dailyPick, setDailyPick] = useState<DailyPickData | null>(null);
+  const [screenerData, setScreenerData] = useState<ScreenerData | null>(null);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +57,9 @@ export default function DashboardPage() {
       fetchDailyPick(),
       fetchScreenerData(),
       fetchNews()
-    ]);
+    ]).finally(() => {
+      setLoading(false);
+    });
   }, []);
 
   const fetchMarketIndices = async () => {
@@ -42,8 +71,6 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error fetching indices:', error);
       setIndices([]); // Set empty array on error
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -61,17 +88,6 @@ export default function DashboardPage() {
 
   const fetchScreenerData = async () => {
     try {
-      // Use the Nifty 50 optimized endpoint (via proxy or direct)
-      // Using the daily-pick proxy logic for now which returns the full screener object
-      // Actually we should create a dedicated screener proxy or reuse the daily-pick logic
-      // But for now let's assume /api/quant/daily-pick returns the daily pick
-      // And we need another/same endpoint for the full list.
-      // Wait, I configured daily-pick route to return 'pick', not the full screener data.
-      // I should fetch /api/quant/screener which I also updated (wait, did I?)
-      // I updated api/quant/screener route in step 105 (wait no that was daily-pick)
-      // Let's check my memory. Step 157 updated screener/route.ts.
-      // It proxies to /screener/nifty50. Perfect.
-
       const response = await fetch('/api/quant/screener');
       const data = await response.json();
       if (data) {
@@ -100,7 +116,12 @@ export default function DashboardPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery) {
-      window.location.href = `/stock/${searchQuery.toUpperCase()}`;
+      const ticker = searchQuery.toUpperCase().trim();
+      if (/^[A-Z0-9\-\s]+(\.(NS|BO))?$/.test(ticker)) {
+        window.location.href = `/stock/${ticker}`;
+      } else {
+        alert("Please enter a valid alphanumeric ticker symbol (e.g., AAPL, RELIANCE.NS)");
+      }
     }
   };
 
@@ -266,12 +287,12 @@ export default function DashboardPage() {
 
         {/* Quick Stats - Top Gainers/Losers */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Top Gainers */}
+          {/* Top Scored Stocks */}
           <Card className="glassmorphism">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <ArrowUpRight className="h-5 w-5 text-green-500" />
-                Top Gainers (Nifty 50)
+                Top Scored Stocks (Nifty 50)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -296,12 +317,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Top Losers */}
+          {/* Lowest Scored Stocks */}
           <Card className="glassmorphism">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <ArrowDownRight className="h-5 w-5 text-red-500" />
-                Top Losers (Nifty 50)
+                Lowest Scored Stocks (Nifty 50)
               </CardTitle>
             </CardHeader>
             <CardContent>

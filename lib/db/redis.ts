@@ -22,13 +22,13 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function setCachedData(
+export async function setCachedData<T>(
   key: string,
-  data: any,
+  data: T,
   duration: number
 ): Promise<void> {
   try {
-    await redis.setex(key, duration, JSON.stringify(data))
+    await redis.setex(key, duration, data)
   } catch (error) {
     console.error('Redis set error:', error)
   }

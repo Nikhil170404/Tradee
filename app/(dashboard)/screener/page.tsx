@@ -233,7 +233,7 @@ export default function ScreenerPage() {
       {/* Main Content */}
       {data && (
         <Tabs defaultValue="best_overall" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-9">
+          <TabsList className="flex w-full overflow-x-auto justify-start h-auto p-1 mb-2 no-scrollbar">
             <TabsTrigger value="best_overall" className="gap-1">
               <Target className="h-4 w-4" />
               Best Overall
