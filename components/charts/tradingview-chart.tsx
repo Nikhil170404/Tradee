@@ -81,14 +81,14 @@ export default function TradingViewChart({
 
     // Convert timestamps to seconds for lightweight-charts
     const formattedData = data.map((d) => ({
-      time: Math.floor(new Date(d.time).getTime() / 1000),
+      time: Math.floor(new Date(d.time).getTime() / 1000) as any,
       open: d.open,
       high: d.high,
       low: d.low,
       close: d.close,
     }));
 
-    candlestickSeries.setData(formattedData);
+    candlestickSeries.setData(formattedData as any);
 
     // Add SMA lines
     if (sma20 && sma20.length > 0) {
@@ -100,10 +100,10 @@ export default function TradingViewChart({
       const sma20Data = sma20
         .filter((d) => d.value !== null)
         .map((d) => ({
-          time: Math.floor(new Date(d.time).getTime() / 1000),
+          time: Math.floor(new Date(d.time).getTime() / 1000) as any,
           value: d.value,
         }));
-      sma20Series.setData(sma20Data);
+      sma20Series.setData(sma20Data as any);
     }
 
     if (sma50 && sma50.length > 0) {
@@ -115,10 +115,10 @@ export default function TradingViewChart({
       const sma50Data = sma50
         .filter((d) => d.value !== null)
         .map((d) => ({
-          time: Math.floor(new Date(d.time).getTime() / 1000),
+          time: Math.floor(new Date(d.time).getTime() / 1000) as any,
           value: d.value,
         }));
-      sma50Series.setData(sma50Data);
+      sma50Series.setData(sma50Data as any);
     }
 
     if (sma200 && sma200.length > 0) {
@@ -130,10 +130,10 @@ export default function TradingViewChart({
       const sma200Data = sma200
         .filter((d) => d.value !== null)
         .map((d) => ({
-          time: Math.floor(new Date(d.time).getTime() / 1000),
+          time: Math.floor(new Date(d.time).getTime() / 1000) as any,
           value: d.value,
         }));
-      sma200Series.setData(sma200Data);
+      sma200Series.setData(sma200Data as any);
     }
 
     // Add volume series
@@ -153,12 +153,12 @@ export default function TradingViewChart({
       const volumeData = data
         .filter((d) => d.volume)
         .map((d) => ({
-          time: Math.floor(new Date(d.time).getTime() / 1000),
+          time: Math.floor(new Date(d.time).getTime() / 1000) as any,
           value: d.volume!,
           color: d.close >= d.open ? '#10b98180' : '#ef444480',
         }));
 
-      volumeSeries.setData(volumeData);
+      volumeSeries.setData(volumeData as any);
     }
 
     // Fit content

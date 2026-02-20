@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import TradingViewChart from '@/components/charts/tradingview-chart';
+import BestStrategy from '@/components/stock/best-strategy';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Activity, DollarSign,
   BarChart3, Building2, AlertCircle
@@ -279,6 +280,9 @@ export default function StockDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Best Strategy - 10-Year Backtest Validation */}
+        <BestStrategy ticker={ticker} />
 
         {/* Chart */}
         <Card className="glassmorphism">

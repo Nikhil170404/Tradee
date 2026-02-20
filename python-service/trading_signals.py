@@ -8,28 +8,20 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List
 from datetime import datetime, timedelta
-
+from enhanced_signals import enhance_trading_signals
+from sentiment import get_real_sentiment_score
 
 def calculate_rsi_wilder(prices: pd.Series, period: int = 14) -> float:
     """
-    Calculate RSI using Wilder's Smoothing Method (Correct Formula)
-    Reference: Wilder, J. Welles (1978). New Concepts in Technical Trading Systems
+    Calculate RSI using Wilder's Smoothing Method (Vectorized)
     """
     delta = prices.diff()
-
-    # Separate gains and losses
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
 
-    # Calculate initial averages (first 14 periods - simple average)
-    avg_gain = gain.rolling(window=period, min_periods=period).mean()
-    avg_loss = loss.rolling(window=period, min_periods=period).mean()
-
-    # Apply Wilder's smoothing for subsequent periods
-    # Smoothed Average = [(Previous Average × 13) + Current Value] / 14
-    for i in range(period, len(gain)):
-        avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + gain.iloc[i]) / period
-        avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + loss.iloc[i]) / period
+    # Use EWM with com=period-1 for Wilder's smoothing
+    avg_gain = gain.ewm(com=period-1, min_periods=period, adjust=False).mean()
+    avg_loss = loss.ewm(com=period-1, min_periods=period, adjust=False).mean()
 
     # Calculate RS and RSI
     rs = avg_gain / avg_loss
@@ -334,12 +326,6 @@ def calculate_fundamental_score(info: Dict) -> Dict:
     """
     Calculate fundamental analysis score (0-100) - SECTOR-AWARE SCORING
     FIXED: Uses sector-specific thresholds instead of banking-only
-
-    Problem: Old code used banking thresholds for ALL stocks
-    - Maruti P/E 25.94 scored 0/100 (wrong - should be ~40)
-    - Maruti margin 9.48% scored 0/100 (wrong - should be ~75 for auto)
-
-    Solution: Import sector-aware scoring
     """
     from fundamental_scoring_fixed import calculate_fundamental_score_sector_aware
     return calculate_fundamental_score_sector_aware(info)
@@ -347,26 +333,24 @@ def calculate_fundamental_score(info: Dict) -> Dict:
 
 def get_overall_signal(technical_score: float, fundamental_score: float, sentiment_score: float) -> Dict:
     """
-    Calculate overall signal with weighted scoring - FIXED THRESHOLDS
-    Previous issue: 61.25 gave BUY, should be NEUTRAL
+    Calculate overall signal with weighted scoring
     Technical: 50%, Fundamental: 30%, Sentiment: 20%
     """
     overall_score = (technical_score * 0.5) + (fundamental_score * 0.3) + (sentiment_score * 0.2)
 
-    # Fixed: More conservative thresholds
-    if overall_score >= 70:  # Raised from 75
+    if overall_score >= 70:
         signal = "STRONG BUY"
         color = "darkgreen"
         confidence = "High"
-    elif overall_score >= 58:  # Raised from 60
+    elif overall_score >= 58:
         signal = "BUY"
         color = "green"
         confidence = "Medium-High"
-    elif overall_score >= 42:  # Slightly raised from 40
+    elif overall_score >= 42:
         signal = "NEUTRAL"
         color = "gray"
         confidence = "Medium"
-    elif overall_score >= 30:  # Raised from 25
+    elif overall_score >= 30:
         signal = "SELL"
         color = "orange"
         confidence = "Medium-High"
@@ -428,9 +412,9 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
         current_price = swing_df['Close'].iloc[-1]
 
         swing_score = 50
-        confirmations = 0  # Track number of bullish confirmations
+        confirmations = 0
 
-        # 1. Trend confirmation (Moving Averages) - 25 points
+        # 1. Trend confirmation (Moving Averages)
         if current_price > swing_ma['sma_20'] and current_price > swing_ma['sma_50']:
             swing_score += 25
             confirmations += 1
@@ -444,11 +428,9 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
         else:
             swing_score -= 5
 
-        # 2. Momentum confirmation (RSI + MACD) - 25 points
-        # RSI with trend context from ADX
+        # 2. Momentum confirmation (RSI + MACD)
         adx = swing_momentum['adx']
         if adx > 25:  # Strong trend
-            # In trends, RSI extremes are less reliable
             if 40 < swing_rsi < 70:
                 swing_score += 10
                 confirmations += 0.5
@@ -473,7 +455,7 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
             swing_score -= 10
             confirmations -= 0.5
 
-        # 3. Volume confirmation - 15 points (critical for breakouts)
+        # 3. Volume confirmation
         if swing_volume['volume_ratio'] > 1.2 and swing_volume['obv_trend'] > 0:
             swing_score += 15
             confirmations += 1
@@ -481,20 +463,18 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
             swing_score -= 10
             confirmations -= 0.5
 
-        # 4. Additional momentum from Stochastic - 10 points
+        # 4. Additional momentum from Stochastic
         if swing_momentum['stochastic_k'] < 30:
             swing_score += 10
         elif swing_momentum['stochastic_k'] > 70:
             swing_score -= 10
 
-        # Require at least 2 confirmations for strong signal
-        # This reduces false signals significantly
         if confirmations >= 2:
             swing_signal = "BUY" if swing_score >= 60 else "NEUTRAL"
         elif confirmations <= -2:
             swing_signal = "SELL" if swing_score <= 40 else "NEUTRAL"
         else:
-            swing_signal = "NEUTRAL"  # Not enough confluence
+            swing_signal = "NEUTRAL"
 
     else:
         swing_signal = "INSUFFICIENT DATA"
@@ -509,19 +489,16 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
 
         long_score = 50
 
-        # Golden cross / Death cross (strongest signal for long-term)
         if long_ma['sma_50'] > long_ma['sma_200']:
             long_score += 25
         else:
             long_score -= 25
 
-        # Price above/below 200-day MA (key long-term indicator)
         if current_price > long_ma['sma_200']:
             long_score += 20
         else:
             long_score -= 20
 
-        # Volume trend confirmation
         if long_volume['obv_trend'] > 0:
             long_score += 5
         else:
@@ -554,7 +531,6 @@ def get_timeframe_signals(ticker: str, df: pd.DataFrame, info: Dict) -> Dict:
     }
 
 
-
 def analyze_trading_signals(ticker: str) -> Dict:
     """
     Comprehensive trading signal analysis
@@ -583,7 +559,7 @@ def analyze_trading_signals(ticker: str) -> Dict:
             "moving_averages": calculate_moving_averages(df['Close']),
             "volume": calculate_volume_analysis(df),
             "momentum": calculate_momentum_indicators(df),
-            "atr": calculate_atr(df)  # Add ATR for volatility-adjusted thresholds
+            "atr": calculate_atr(df)
         }
 
         # Calculate scores
@@ -594,8 +570,9 @@ def analyze_trading_signals(ticker: str) -> Dict:
         info_with_ticker['symbol'] = ticker
         fundamental_analysis = calculate_fundamental_score(info_with_ticker)
 
-        # Sentiment score (placeholder - would integrate with news API)
-        sentiment_score = 50  # Neutral default
+        # Real sentiment analysis using VADER and yfinance news
+        sentiment_data = get_real_sentiment_score(ticker)
+        sentiment_score = float(sentiment_data['score'] if 'score' in sentiment_data else 50)
 
         # Overall signal
         overall = get_overall_signal(
@@ -619,6 +596,7 @@ def analyze_trading_signals(ticker: str) -> Dict:
             "technical_analysis": technical_analysis,
             "fundamental_analysis": fundamental_analysis,
             "sentiment_score": sentiment_score,
+            "sentiment_analysis": sentiment_data,
             "timeframe_signals": timeframe_signals,
             "vwap_strategy": vwap_strategy,
             "key_indicators": {

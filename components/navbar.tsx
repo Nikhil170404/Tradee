@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Filter, TrendingUp, Briefcase, Newspaper } from 'lucide-react'
+import { Home, Filter, TrendingUp, Briefcase, Newspaper, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -15,6 +15,11 @@ const navItems = [
     title: 'Stock Screener',
     href: '/screener',
     icon: Filter,
+  },
+  {
+    title: 'Backtest',
+    href: '/backtest',
+    icon: BarChart3,
   },
   {
     title: 'Portfolio',

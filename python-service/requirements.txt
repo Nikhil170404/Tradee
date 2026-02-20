@@ -3,10 +3,7 @@ uvicorn[standard]==0.27.0
 pandas==2.2.0
 numpy==1.26.3
 yfinance==0.2.35
-ta-lib==0.4.28
 vaderSentiment==3.3.2
-transformers==4.37.0
-torch==2.2.0
 requests==2.31.0
 python-dotenv==1.0.0
 pydantic==2.5.3

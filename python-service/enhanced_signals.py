@@ -322,10 +322,12 @@ def enhance_trading_signals(raw_signals: Dict) -> Dict:
     enhanced['risk_management'] = risk_management
 
     # Trading recommendation summary
+    confidence_level = enhanced.get('confidence_level', 'Low')
+    
     if conflict_count >= 2:
         trading_recommendation = "⛔ DON'T TRADE - Too many conflicting signals (%d conflicts)" % conflict_count
         trade_safety = "UNSAFE"
-    elif confidence_level := enhanced.get('confidence_level') == "Low":
+    elif confidence_level == "Low":
         trading_recommendation = "⚠️ TRADE WITH CAUTION - Low confidence, use small position (max 2-3%)"
         trade_safety = "RISKY"
     elif confidence_level == "Medium":

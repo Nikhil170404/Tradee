@@ -17,11 +17,20 @@ interface MarketIndex {
 
 export default function DashboardPage() {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
+  const [dailyPick, setDailyPick] = useState<any>(null);
+  const [screenerData, setScreenerData] = useState<any>(null);
+  const [news, setNews] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMarketIndices();
+    // Fetch all data in parallel for faster page load
+    Promise.all([
+      fetchMarketIndices(),
+      fetchDailyPick(),
+      fetchScreenerData(),
+      fetchNews()
+    ]);
   }, []);
 
   const fetchMarketIndices = async () => {
@@ -35,6 +44,56 @@ export default function DashboardPage() {
       setIndices([]); // Set empty array on error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDailyPick = async () => {
+    try {
+      const response = await fetch('/api/quant/daily-pick');
+      const data = await response.json();
+      if (data && !data.error) {
+        setDailyPick(data);
+      }
+    } catch (error) {
+      console.error('Error fetching daily pick:', error);
+    }
+  };
+
+  const fetchScreenerData = async () => {
+    try {
+      // Use the Nifty 50 optimized endpoint (via proxy or direct)
+      // Using the daily-pick proxy logic for now which returns the full screener object
+      // Actually we should create a dedicated screener proxy or reuse the daily-pick logic
+      // But for now let's assume /api/quant/daily-pick returns the daily pick
+      // And we need another/same endpoint for the full list.
+      // Wait, I configured daily-pick route to return 'pick', not the full screener data.
+      // I should fetch /api/quant/screener which I also updated (wait, did I?)
+      // I updated api/quant/screener route in step 105 (wait no that was daily-pick)
+      // Let's check my memory. Step 157 updated screener/route.ts.
+      // It proxies to /screener/nifty50. Perfect.
+
+      const response = await fetch('/api/quant/screener');
+      const data = await response.json();
+      if (data) {
+        setScreenerData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching screener data:', error);
+    }
+  };
+
+  const fetchNews = async () => {
+    try {
+      // Fetch general market news (Nifty 50, Global, Economy)
+      // We need to create a new API route for this or make the existing one smart
+      // Let's us a specific query param
+      const response = await fetch('/api/quant/news?type=general');
+      const data = await response.json();
+      if (data && data.news) {
+        setNews(data.news);
+      }
+    } catch (error) {
+      console.error('Error fetching news:', error);
     }
   };
 
@@ -114,9 +173,8 @@ export default function DashboardPage() {
                       <p className="text-2xl font-bold">
                         {formatCurrency(index.price)}
                       </p>
-                      <div className={`flex items-center gap-1 text-sm font-medium ${
-                        index.changePercent >= 0 ? 'text-positive' : 'text-negative'
-                      }`}>
+                      <div className={`flex items-center gap-1 text-sm font-medium ${index.changePercent >= 0 ? 'text-positive' : 'text-negative'
+                        }`}>
                         {index.changePercent >= 0 ? (
                           <ArrowUpRight className="h-4 w-4" />
                         ) : (
@@ -133,65 +191,178 @@ export default function DashboardPage() {
         </div>
 
         {/* Daily AI Pick */}
-        <Card className="glassmorphism border-2 border-primary/50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <CardTitle>Daily AI Stock Pick</CardTitle>
-            </div>
-            <CardDescription>
-              AI-powered recommendation based on technical, fundamental, and sentiment analysis
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center space-y-4">
-                <div className="inline-block p-4 bg-primary/10 rounded-full">
-                  <TrendingUp className="h-12 w-12 text-primary" />
-                </div>
-                <p className="text-muted-foreground">
-                  Coming soon! AI stock picker will analyze 1000+ stocks daily.
-                </p>
-                <Button variant="outline">
-                  Setup API Keys
-                </Button>
+        <div className="grid grid-cols-1 gap-4">
+          {dailyPick ? (
+            <Card className="glassmorphism border-2 border-primary/50 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <TrendingUp className="h-32 w-32" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                  <CardTitle>Daily AI Stock Pick</CardTitle>
+                  <span className="ml-auto text-xs font-mono bg-primary/20 text-primary px-2 py-1 rounded">
+                    {dailyPick.generated_at ? new Date(dailyPick.generated_at).toLocaleDateString() : 'Today'}
+                  </span>
+                </div>
+                <CardDescription>
+                  Top AI recommendation based on technical, fundamental, and sentiment analysis
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                  <div className="text-center md:text-left">
+                    <h3 className="text-5xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                      {dailyPick.pick.ticker.replace('.NS', '')}
+                    </h3>
+                    <p className="text-lg text-muted-foreground mt-1">{dailyPick.pick.sector}</p>
+                  </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                    <div className="p-3 bg-background/50 rounded-lg border">
+                      <p className="text-xs text-muted-foreground">Signal</p>
+                      <p className={`text-lg font-bold ${dailyPick.pick.overall_signal === 'STRONG BUY' ? 'text-green-500' :
+                        dailyPick.pick.overall_signal === 'BUY' ? 'text-green-400' : 'text-yellow-500'
+                        }`}>
+                        {dailyPick.pick.overall_signal}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-background/50 rounded-lg border">
+                      <p className="text-xs text-muted-foreground">Confidence</p>
+                      <p className="text-lg font-bold">{dailyPick.pick.confidence_level}</p>
+                    </div>
+                    <div className="p-3 bg-background/50 rounded-lg border">
+                      <p className="text-xs text-muted-foreground">AI Score</p>
+                      <p className="text-lg font-bold">{dailyPick.pick.overall_score}/100</p>
+                    </div>
+                    <div className="p-3 bg-background/50 rounded-lg border">
+                      <p className="text-xs text-muted-foreground">RSI</p>
+                      <p className="text-lg font-bold">{dailyPick.pick.rsi?.toFixed(1)}</p>
+                    </div>
+                  </div>
+
+                  <Button className="w-full md:w-auto" onClick={() => window.location.href = `/stock/${dailyPick.pick.ticker}`}>
+                    View Analysis
+                    <ArrowUpRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glassmorphism border-2 border-primary/50">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                  <CardTitle>Daily AI Stock Pick</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="py-8 text-center">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Analyzing market data...</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Quick Stats - Top Gainers/Losers */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Gainers */}
           <Card className="glassmorphism">
             <CardHeader>
-              <CardTitle className="text-lg">Top Gainers</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ArrowUpRight className="h-5 w-5 text-green-500" />
+                Top Gainers (Nifty 50)
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Coming soon - Real-time market movers
-              </p>
+              {screenerData ? (
+                <div className="space-y-3">
+                  {screenerData.categories.top_gainers.slice(0, 5).map((stock: any) => (
+                    <div key={stock.ticker} className="flex items-center justify-between p-2 hover:bg-white/5 rounded transition-colors cursor-pointer" onClick={() => window.location.href = `/stock/${stock.ticker}`}>
+                      <div>
+                        <p className="font-bold">{stock.ticker.replace('.NS', '')}</p>
+                        <p className="text-xs text-muted-foreground">RSI: {stock.rsi?.toFixed(0)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-green-500 font-bold">{stock.overall_score}</p>
+                        <p className="text-xs text-muted-foreground">Score</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Loading market movers...</p>
+              )}
             </CardContent>
           </Card>
 
+          {/* Top Losers */}
           <Card className="glassmorphism">
             <CardHeader>
-              <CardTitle className="text-lg">Top Losers</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ArrowDownRight className="h-5 w-5 text-red-500" />
+                Top Losers (Nifty 50)
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Coming soon - Real-time market movers
-              </p>
+              {screenerData ? (
+                <div className="space-y-3">
+                  {screenerData.categories.top_losers.slice(0, 5).map((stock: any) => (
+                    <div key={stock.ticker} className="flex items-center justify-between p-2 hover:bg-white/5 rounded transition-colors cursor-pointer" onClick={() => window.location.href = `/stock/${stock.ticker}`}>
+                      <div>
+                        <p className="font-bold">{stock.ticker.replace('.NS', '')}</p>
+                        <p className="text-xs text-muted-foreground">RSI: {stock.rsi?.toFixed(0)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-red-500 font-bold">{stock.overall_score}</p>
+                        <p className="text-xs text-muted-foreground">Score</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Loading market movers...</p>
+              )}
             </CardContent>
           </Card>
+        </div>
 
+        {/* Market News */}
+        <div className="grid grid-cols-1 gap-4">
           <Card className="glassmorphism">
             <CardHeader>
               <CardTitle className="text-lg">Market News</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Coming soon - Latest financial news
-              </p>
+              {news.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {news.slice(0, 6).map((item: any, i) => (
+                    <div key={i} className="border border-border/50 p-4 rounded-lg bg-background/20 hover:bg-background/40 transition-colors">
+                      <a href={item.link} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors block h-full flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs text-muted-foreground">{item.publisher}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${item.sentiment === 'Positive' ? 'bg-green-500/20 text-green-500' :
+                              item.sentiment === 'Negative' ? 'bg-red-500/20 text-red-500' :
+                                'bg-yellow-500/20 text-yellow-500'
+                              }`}>
+                              {item.sentiment}
+                            </span>
+                          </div>
+                          <p className="font-medium text-sm line-clamp-3 mb-2">{item.title}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-auto">
+                          {new Date(item.providerPublishTime * 1000).toLocaleDateString()}
+                        </p>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Loading market news...
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -57,7 +57,7 @@ export default function ScreenerPage() {
     setError(null)
 
     try {
-      const response = await fetch(`http://localhost:8000/screener/nifty50?force_refresh=${forceRefresh}`)
+      const response = await fetch(`/api/quant/screener?force_refresh=${forceRefresh}`)
       const result = await response.json()
 
       if (response.ok) {

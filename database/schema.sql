@@ -144,7 +144,10 @@ CREATE TRIGGER update_alerts_updated_at BEFORE UPDATE ON price_alerts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to calculate portfolio value
-CREATE OR REPLACE FUNCTION calculate_portfolio_value(p_user_id UUID)
+-- Function to calculate portfolio value
+-- Accepts a JSONB map of ticker -> current_price
+-- Example: '{"RELIANCE.NS": 2500.50, "TCS.NS": 3400.00}'
+CREATE OR REPLACE FUNCTION calculate_portfolio_value(p_user_id UUID, current_prices JSONB DEFAULT '{}'::jsonb)
 RETURNS TABLE(
   total_value DECIMAL,
   total_cost DECIMAL,
@@ -154,10 +157,29 @@ RETURNS TABLE(
 BEGIN
   RETURN QUERY
   SELECT
-    SUM(quantity * avg_price) as total_value,
+    SUM(
+      COALESCE(
+        (current_prices->>ticker)::DECIMAL * quantity, 
+        avg_price * quantity
+      )
+    ) as total_value,
     SUM(quantity * avg_price) as total_cost,
-    0::DECIMAL as total_gain,
-    0::DECIMAL as total_gain_percent
+    SUM(
+      COALESCE(
+        (current_prices->>ticker)::DECIMAL * quantity, 
+        avg_price * quantity
+      ) - (quantity * avg_price)
+    ) as total_gain,
+    CASE 
+      WHEN SUM(quantity * avg_price) > 0 THEN
+        (SUM(
+          COALESCE(
+            (current_prices->>ticker)::DECIMAL * quantity, 
+            avg_price * quantity
+          ) - (quantity * avg_price)
+        ) / SUM(quantity * avg_price)) * 100
+      ELSE 0
+    END as total_gain_percent
   FROM portfolio
   WHERE user_id = p_user_id;
 END;
